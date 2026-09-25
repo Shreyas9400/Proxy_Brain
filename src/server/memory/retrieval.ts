@@ -24,7 +24,7 @@ export function isHistoricalQuery(query: string): boolean {
   return HISTORICAL_QUERY_PATTERN.test(query);
 }
 
-function statusScore(status: string, historical: boolean): number | null {
+export function statusScore(status: string, historical: boolean): number | null {
   if (status === "ACTIVE") return 1.0;
   if (status === "UNCERTAIN") return 0.5;
   if (status === "STALE") return 0.6;
@@ -34,14 +34,14 @@ function statusScore(status: string, historical: boolean): number | null {
   return null;
 }
 
-function recencyScore(lastConfirmedAt: Date): number {
+export function recencyScore(lastConfirmedAt: Date): number {
   const ageDays = (Date.now() - lastConfirmedAt.getTime()) / (1000 * 60 * 60 * 24);
   // Half-life of ~30 days: recent confirmations dominate, old ones fade but
   // never hit zero (a fact confirmed a year ago is still worth surfacing).
   return Math.exp(-ageDays / 30);
 }
 
-interface Candidate {
+export interface Candidate {
   id: string;
   statement: string;
   memoryType: string;
@@ -161,7 +161,7 @@ export async function findCandidateMemories(
   return Array.from(merged.values()).filter((c) => statusScore(c.status, historical) !== null);
 }
 
-function scoreCandidate(c: Candidate, historical: boolean): number {
+export function scoreCandidate(c: Candidate, historical: boolean): number {
   const status = statusScore(c.status, historical) ?? 0;
   const importance = IMPORTANCE_SCORE[c.importance] ?? 0.5;
   const recency = recencyScore(c.lastConfirmedAt);
