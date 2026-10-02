@@ -1,0 +1,27 @@
+{
+  "source": { "title": "Example knowledge seed", "origin": "manual" },
+  "defaults": { "memoryType": "FACT", "domain": "OTHER", "temporalType": "CURRENT", "importance": "MEDIUM", "confidence": 0.75 },
+  "entities": [
+    { "name": "Acme Corp", "entityType": "COMPANY", "aliases": ["Acme"] },
+    { "name": "PostgreSQL", "entityType": "TECHNOLOGY", "aliases": ["Postgres"] }
+  ],
+  "sections": [
+    {
+      "title": "Work",
+      "domain": "CAREER",
+      "items": [
+        { "label": "Employer", "statement": "The user works at Acme Corp as a data engineer.", "importance": "HIGH" },
+        { "label": "Previous role", "statement": "The user previously worked as a database administrator running Postgres.", "temporalType": "HISTORICAL" }
+      ]
+    },
+    {
+      "title": "Preferences",
+      "domain": "PERSONAL",
+      "memoryType": "PREFERENCE",
+      "items": [
+        { "statement": "The user prefers concise answers with code examples." },
+        { "statement": "The user's salary details are private.", "domain": "FINANCE", "review": true }
+      ]
+    }
+  ]
+}
