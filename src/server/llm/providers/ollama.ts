@@ -94,18 +94,24 @@ export class OllamaProvider implements LLMProvider {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const chunk = JSON.parse(line) as OllamaStreamChunk;
-        if (chunk.error) throw new Error(`Ollama chat stream failed: ${chunk.error}`);
-        if (chunk.message?.content) yield chunk.message.content;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const chunk = JSON.parse(line) as OllamaStreamChunk;
+          if (chunk.error) throw new Error(`Ollama chat stream failed: ${chunk.error}`);
+          if (chunk.message?.content) yield chunk.message.content;
+        }
       }
+    } finally {
+      // Runs when the consumer stops early too: closing the connection makes
+      // Ollama stop generating instead of finishing in the background.
+      await reader.cancel().catch(() => {});
     }
   }
 

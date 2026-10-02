@@ -7,6 +7,7 @@ import {
   getMessages,
 } from "@/server/chat/conversations";
 import { buildSystemPrompt } from "@/server/chat/prompt";
+import { stopRepetition } from "@/server/chat/stop-repetition";
 import { stripThinking } from "@/server/chat/strip-thinking";
 import type { ChatEvent } from "@/server/chat/events";
 import { getLLMProvider, type ChatMessage } from "@/server/llm";
@@ -93,7 +94,9 @@ export async function POST(request: Request) {
       let reply = "";
       try {
         const chunks = stripThinking(
-          getLLMProvider().streamText(llmMessages, { signal: request.signal, maxTokens: MAX_REPLY_TOKENS }),
+          stopRepetition(
+            getLLMProvider().streamText(llmMessages, { signal: request.signal, maxTokens: MAX_REPLY_TOKENS }),
+          ),
         );
         for await (const chunk of chunks) {
           if (chunk.kind === "reset") {
