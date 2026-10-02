@@ -36,6 +36,24 @@ export class AnthropicProvider implements LLMProvider {
     return textBlock?.type === "text" ? textBlock.text : "";
   }
 
+  async *streamText(messages: ChatMessage[], options?: GenerateTextOptions): AsyncIterable<string> {
+    const { system, rest } = this.splitSystem(messages);
+    const stream = await this.client.messages.create(
+      {
+        model: this.model,
+        system,
+        max_tokens: options?.maxTokens ?? 1024,
+        temperature: options?.temperature ?? 0.4,
+        messages: rest.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+        stream: true,
+      },
+      { signal: options?.signal },
+    );
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") yield event.delta.text;
+    }
+  }
+
   async generateStructured<T>(
     messages: ChatMessage[],
     schema: z.ZodType<T>,

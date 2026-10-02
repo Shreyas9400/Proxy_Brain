@@ -5,6 +5,12 @@ interface OllamaChatResponse {
   message: { role: string; content: string };
 }
 
+interface OllamaStreamChunk {
+  message?: { content?: string };
+  done?: boolean;
+  error?: string;
+}
+
 interface OllamaEmbedResponse {
   embeddings: number[][];
 }
@@ -13,10 +19,14 @@ export class OllamaProvider implements LLMProvider {
   readonly name = "ollama";
   private readonly baseUrl: string;
   private readonly model: string;
+  // undefined = model default. false makes thinking models (qwen3 etc.)
+  // answer directly, which is much faster on small local hardware.
+  private readonly think: boolean | undefined;
 
-  constructor(baseUrl: string, model: string) {
+  constructor(baseUrl: string, model: string, think?: boolean) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.model = model;
+    this.think = think;
   }
 
   async generateText(messages: ChatMessage[], options?: GenerateTextOptions): Promise<string> {
@@ -27,6 +37,7 @@ export class OllamaProvider implements LLMProvider {
         model: this.model,
         messages,
         stream: false,
+        think: this.think,
         options: {
           temperature: options?.temperature ?? 0.4,
           num_predict: options?.maxTokens,
@@ -40,6 +51,47 @@ export class OllamaProvider implements LLMProvider {
 
     const data = (await res.json()) as OllamaChatResponse;
     return data.message.content;
+  }
+
+  async *streamText(messages: ChatMessage[], options?: GenerateTextOptions): AsyncIterable<string> {
+    const res = await fetch(`${this.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: options?.signal,
+      body: JSON.stringify({
+        model: this.model,
+        messages,
+        stream: true,
+        think: this.think,
+        options: {
+          temperature: options?.temperature ?? 0.4,
+          num_predict: options?.maxTokens,
+        },
+      }),
+    });
+
+    if (!res.ok || !res.body) {
+      throw new Error(`Ollama chat request failed: ${res.status} ${await res.text()}`);
+    }
+
+    // Newline-delimited JSON, one chunk per line. Only `content` is
+    // forwarded; a separate `thinking` field (if any) is dropped.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const chunk = JSON.parse(line) as OllamaStreamChunk;
+        if (chunk.error) throw new Error(`Ollama chat stream failed: ${chunk.error}`);
+        if (chunk.message?.content) yield chunk.message.content;
+      }
+    }
   }
 
   async generateStructured<T>(

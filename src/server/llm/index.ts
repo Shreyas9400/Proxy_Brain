@@ -11,6 +11,11 @@ function getProviderName(): ProviderName {
   throw new Error(`Unknown LLM_PROVIDER: ${value}`);
 }
 
+function parseOptionalBoolean(value: string | undefined): boolean | undefined {
+  if (value === undefined || value.trim() === "") return undefined;
+  return value.trim().toLowerCase() === "true";
+}
+
 let llmSingleton: LLMProvider | undefined;
 let embeddingSingleton: EmbeddingProvider | undefined;
 
@@ -22,6 +27,7 @@ export function getLLMProvider(): LLMProvider {
     llmSingleton = new OllamaProvider(
       process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
       process.env.OLLAMA_CHAT_MODEL ?? "llama3.1",
+      parseOptionalBoolean(process.env.OLLAMA_THINK),
     );
   } else if (provider === "anthropic") {
     const apiKey = process.env.ANTHROPIC_API_KEY;

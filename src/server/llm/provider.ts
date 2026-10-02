@@ -10,6 +10,7 @@ export interface ChatMessage {
 export interface GenerateTextOptions {
   temperature?: number;
   maxTokens?: number;
+  signal?: AbortSignal;
 }
 
 /**
@@ -20,6 +21,8 @@ export interface GenerateTextOptions {
 export interface LLMProvider {
   readonly name: string;
   generateText(messages: ChatMessage[], options?: GenerateTextOptions): Promise<string>;
+  /** Yields the reply as text deltas, for the streaming chat UI. */
+  streamText(messages: ChatMessage[], options?: GenerateTextOptions): AsyncIterable<string>;
   generateStructured<T>(
     messages: ChatMessage[],
     schema: z.ZodType<T>,

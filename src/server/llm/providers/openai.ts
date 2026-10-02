@@ -27,6 +27,23 @@ export class OpenAIProvider implements LLMProvider {
     return res.choices[0]?.message?.content ?? "";
   }
 
+  async *streamText(messages: ChatMessage[], options?: GenerateTextOptions): AsyncIterable<string> {
+    const stream = await this.client.chat.completions.create(
+      {
+        model: this.model,
+        messages,
+        temperature: options?.temperature ?? 0.4,
+        max_tokens: options?.maxTokens,
+        stream: true,
+      },
+      { signal: options?.signal },
+    );
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (delta) yield delta;
+    }
+  }
+
   async generateStructured<T>(
     messages: ChatMessage[],
     schema: z.ZodType<T>,

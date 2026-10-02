@@ -14,8 +14,14 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;
-      const isOnLogin = request.nextUrl.pathname.startsWith("/login");
-      if (isOnLogin) return true;
+      const { pathname } = request.nextUrl;
+      if (pathname.startsWith("/login")) {
+        return isLoggedIn ? Response.redirect(new URL("/", request.nextUrl)) : true;
+      }
+      // API callers get a 401 instead of a redirect to the login page.
+      if (!isLoggedIn && pathname.startsWith("/api/")) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+      }
       return isLoggedIn;
     },
     jwt({ token, user }) {
