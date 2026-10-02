@@ -16,6 +16,8 @@ import type { ContextPackage } from "@/server/memory/types";
 // Only the most recent turns are replayed to the model, to stay inside the
 // context window of small local models.
 const HISTORY_LIMIT = 20;
+// Hard stop for runaway generations (small models can loop on repeated lines).
+const MAX_REPLY_TOKENS = 2048;
 
 const bodySchema = z.object({
   conversationId: z.uuid().optional(),
@@ -90,9 +92,17 @@ export async function POST(request: Request) {
 
       let reply = "";
       try {
-        for await (const delta of stripThinking(getLLMProvider().streamText(llmMessages, { signal: request.signal }))) {
-          reply += delta;
-          send({ type: "delta", text: delta });
+        const chunks = stripThinking(
+          getLLMProvider().streamText(llmMessages, { signal: request.signal, maxTokens: MAX_REPLY_TOKENS }),
+        );
+        for await (const chunk of chunks) {
+          if (chunk.kind === "reset") {
+            reply = "";
+            send({ type: "reset" });
+          } else {
+            reply += chunk.text;
+            send({ type: "delta", text: chunk.text });
+          }
         }
         const messageId = await appendMessage(conversationId, "assistant", reply);
         send({ type: "done", messageId });

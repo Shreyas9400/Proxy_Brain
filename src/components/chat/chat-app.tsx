@@ -113,6 +113,9 @@ export function ChatApp({ userName, conversations, conversationId: serverConvers
           } else if (event.type === "delta") {
             content += event.text;
             update({ content });
+          } else if (event.type === "reset") {
+            content = "";
+            update({ content });
           } else if (event.type === "error") {
             throw new Error(event.message);
           }

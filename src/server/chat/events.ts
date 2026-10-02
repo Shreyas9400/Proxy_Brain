@@ -11,5 +11,7 @@ export interface UsedMemory {
 export type ChatEvent =
   | { type: "meta"; conversationId: string; title: string; memories: UsedMemory[]; warning?: string }
   | { type: "delta"; text: string }
+  // The text streamed so far was model reasoning; clear it.
+  | { type: "reset" }
   | { type: "done"; messageId: string }
   | { type: "error"; message: string };

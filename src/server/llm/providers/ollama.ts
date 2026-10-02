@@ -29,6 +29,19 @@ export class OllamaProvider implements LLMProvider {
     this.think = think;
   }
 
+  /**
+   * Older Ollama versions ignore the `think` request field, so qwen3 keeps
+   * reasoning. Its own soft switch, "/no_think" in the system prompt, works
+   * regardless; other models just see an unknown token. Only added when
+   * thinking was explicitly turned off.
+   */
+  private withThinkingSwitch(messages: ChatMessage[]): ChatMessage[] {
+    if (this.think !== false) return messages;
+    const [first, ...rest] = messages;
+    if (first?.role === "system") return [{ ...first, content: `${first.content}\n\n/no_think` }, ...rest];
+    return [{ role: "system", content: "/no_think" }, ...messages];
+  }
+
   async generateText(messages: ChatMessage[], options?: GenerateTextOptions): Promise<string> {
     const res = await fetch(`${this.baseUrl}/api/chat`, {
       method: "POST",
@@ -60,11 +73,13 @@ export class OllamaProvider implements LLMProvider {
       signal: options?.signal,
       body: JSON.stringify({
         model: this.model,
-        messages,
+        messages: this.withThinkingSwitch(messages),
         stream: true,
         think: this.think,
         options: {
-          temperature: options?.temperature ?? 0.4,
+          // Unset = the model's own tuned default (qwen3: 0.6). Forcing a low
+          // temperature makes small models loop on repeated lines.
+          temperature: options?.temperature,
           num_predict: options?.maxTokens,
         },
       }),
